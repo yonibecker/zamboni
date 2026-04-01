@@ -1,30 +1,8 @@
 const Discord = require("discord.js");
 const prefix = "h:";
-const { getTeamId } = require("@nhl-api/teams");
 const axios = require("axios");
-const svg2img = require("svg2img");
-const fs = require("fs");
+const { getTeamAbbreviation } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
-
-const getSVGSource = async (id) => {
-  const { data } = await axios.get(
-    `https://www-league.nhlstatic.com/images/logos/teams-current-primary-light/${id}.svg`
-  );
-  return data;
-};
-
-const convertSVGStringToImage = async (id) => {
-  var svgString = await getSVGSource(id);
-  return new Promise((resolve, reject) => {
-    svg2img(svgString, (error, buffer) => {
-      if (error) return reject(error);
-      const publicFilePath = `/team-images/${id}.png`;
-      const fullFilePath = `static${publicFilePath}`;
-      fs.writeFileSync(fullFilePath, buffer);
-      resolve(publicFilePath);
-    });
-  });
-};
 
 const teamStatsByYear = async (message) => {
   try {
@@ -32,40 +10,44 @@ const teamStatsByYear = async (message) => {
     args.shift();
     const year = args.pop();
     var team = args.join(" ");
-    const id = getTeamId(team);
-    if (!id || !year) {
-      checkParams(message, args);
+    const abbrev = getTeamAbbreviation(team);
+    if (!abbrev || !year) { checkParams(message, args); return; }
+
+    // Use the nhle stats API (same one league leaders use) for historical team data
+    const { data } = await axios.get(
+      `https://api.nhle.com/stats/rest/en/team/summary?isAggregate=false&isGame=false&cayenneExp=seasonId=${year}%20and%20gameTypeId=2`
+    );
+
+    const teamData = data.data.find((t) => t.teamTriCode === abbrev);
+    if (!teamData) {
+      message.channel.send(`No stats found for ${team} in ${year}.`);
       return;
     }
-    var response = await axios.get(
-      `https://statsapi.web.nhl.com/api/v1/teams/${id}/?expand=team.stats&season=${year}`
-    );
-    var data = response.data;
-    const imageFilePath = await convertSVGStringToImage(id);
-    const fullyQualifiedPath = `${process.env.BASE_URL || ""}${imageFilePath}`;
 
     var embed = new Discord.MessageEmbed()
       .setColor(`#f2432c`)
-      .setTitle(`${data["teams"][0]["name"]} ${year} Team Stats`)
-      .setThumbnail(fullyQualifiedPath)
+      .setTitle(`${teamData.teamFullName} ${year} Team Stats`)
       .setDescription(`
-**Wins:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["wins"]}
-**Losses:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["losses"]}
-**Overtime Losses:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["ot"]}
-**Points:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["pts"]}
-**Point Percentage:** ${Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["ptPctg"]) ? Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["ptPctg"]).toFixed(2) : "undefined"}%
-**Goals Per Game:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["goalsPerGame"] ? data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["goalsPerGame"].toFixed(2) : "undefined"}
-**Power Play Percentage:** ${Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["powerPlayPercentage"]) ? Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["powerPlayPercentage"]).toFixed(2) : "undefined"}%
-**Penalty Kill Percentage:** ${Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["penaltyKillPercentage"]) ? Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["penaltyKillPercentage"]).toFixed(2) : "undefined"}%
-**Shots Per Game:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["shotsPerGame"] ? data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["shotsPerGame"].toFixed(2) : "undefined"}
-**Shots Allowed Per Game:** ${data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["shotsAllowed"] ? data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["shotsAllowed"].toFixed(2) : "undefined"}
-**Faceoff Win Percentage:** ${Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["faceOffWinPercentage"]) ? Number(data["teams"][0]["teamStats"][0]["splits"][0]["stat"]["faceOffWinPercentage"]).toFixed(2) : "undefined"}%
+**Wins:** ${teamData.wins}
+**Losses:** ${teamData.losses}
+**OT Losses:** ${teamData.otLosses}
+**Points:** ${teamData.points}
+**Point Percentage:** ${(teamData.pointPctg * 100).toFixed(1)}%
+**Goals For:** ${teamData.goalsFor}
+**Goals Against:** ${teamData.goalsAgainst}
+**Goals Per Game:** ${teamData.goalsForPerGame.toFixed(2)}
+**Goals Against Per Game:** ${teamData.goalsAgainstPerGame.toFixed(2)}
+**Power Play Percentage:** ${(teamData.powerPlayPctg * 100).toFixed(1)}%
+**Penalty Kill Percentage:** ${(teamData.penaltyKillPctg * 100).toFixed(1)}%
+**Shots Per Game:** ${teamData.shotsForPerGame.toFixed(1)}
+**Shots Against Per Game:** ${teamData.shotsAgainstPerGame.toFixed(1)}
+**Faceoff Win Percentage:** ${(teamData.faceoffWinPctg * 100).toFixed(1)}%
       `);
     message.channel.send(embed);
   } catch (e) {
     checkParams(message, args);
   }
-}
+};
 module.exports = {
-  teamStatsByYear
+  teamStatsByYear,
 };

@@ -1,7 +1,7 @@
 const Discord = require("discord.js");
 const prefix = "h:";
 const { getPlayerId } = require("@nhl-api/players");
-const axios = require("axios");
+const { getPlayerLanding, formatHeight, positionName } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const playerInfo = async (message) => {
@@ -10,27 +10,25 @@ const playerInfo = async (message) => {
     args.shift();
     var player = args[0] + " " + args[1];
     const id = getPlayerId(player);
-    var response = await axios.get(
-      `https://statsapi.web.nhl.com/api/v1/people/${id}/`
-    );
-    var data = await response.data;
+    if (!id) { checkParams(message, args); return; }
+
+    const data = await getPlayerLanding(id);
 
     var embed = new Discord.MessageEmbed()
       .setColor(`#f2432c`)
-      .setThumbnail(
-        `http://nhl.bamcontent.com/images/headshots/current/168x168/${id}.jpg`
-      )
-      .setTitle(`${data["people"][0]["fullName"]} Info`).setDescription(`
-**Name:** ${data["people"][0]["fullName"]}
-**Current Team** ${data["people"][0]["currentTeam"]["name"]}
-**Position:** ${data["people"][0]["primaryPosition"]["name"]}
-**Jersey Number:** ${data["people"][0]["primaryNumber"]}
-**Birthdate:** ${data["people"][0]["birthDate"]}
-**Age:** ${data["people"][0]["currentAge"]}
-**Height:** ${data["people"][0]["height"]}
-**Weight:** ${data["people"][0]["weight"]}
-**Birth Country:** ${data["people"][0]["nationality"]}
-  `);
+      .setThumbnail(data.headshot)
+      .setTitle(`${data.firstName.default} ${data.lastName.default} Info`)
+      .setDescription(`
+**Name:** ${data.firstName.default} ${data.lastName.default}
+**Current Team:** ${data.fullTeamName.default}
+**Position:** ${positionName(data.position)}
+**Jersey Number:** ${data.sweaterNumber}
+**Birthdate:** ${data.birthDate}
+**Height:** ${formatHeight(data.heightInInches)}
+**Weight:** ${data.weightInPounds} lbs
+**Birth Country:** ${data.birthCountry}
+**Shoots/Catches:** ${data.shootsCatches}
+      `);
     message.channel.send(embed);
   } catch (e) {
     checkParams(message, args);

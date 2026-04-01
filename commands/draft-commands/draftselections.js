@@ -8,37 +8,35 @@ const draftSelections = async (message) => {
     var args = message.content.slice(prefix.length).trim().split(" ");
     args.shift();
     const year = args[0];
-    var xSelectionsStart = args[1];
-    var xSelectionsEnd = args[2];
-    var xSelectionsStart_unchanged = xSelectionsStart;
-    var xSelectionsEnd_unchanged = xSelectionsEnd;
-    if (!xSelectionsEnd_unchanged || !xSelectionsStart_unchanged || xSelectionsStart_unchanged > xSelectionsEnd_unchanged) {
+    const startPick = parseInt(args[1]);
+    const endPick = parseInt(args[2]);
+
+    if (!year || !startPick || !endPick || startPick > endPick) {
       checkParams(message, args);
       return;
     }
-    var response = await axios.get(
-      `https://statsapi.web.nhl.com/api/v1/draft/${year}`
+
+    const { data } = await axios.get(
+      `https://records.nhl.com/site/api/draft?cayenneExp=draftYear=${year}&sort=[{%22property%22:%22overallPickNumber%22,%22direction%22:%22ASC%22}]`
     );
-    const data = await response.data;
+
+    const picks = data.data.filter(
+      (p) => p.overallPickNumber >= startPick && p.overallPickNumber <= endPick
+    );
+
+    if (picks.length === 0) {
+      message.channel.send(`No draft picks found for ${year} picks ${startPick}-${endPick}.`);
+      return;
+    }
 
     var embed_desc = "";
-    var target = data["drafts"][0]["rounds"][0]["picks"];
-    var round = 1;
-    for (var i = xSelectionsStart - 1; i < xSelectionsEnd; i++) {
-      if (data["drafts"][0]["rounds"][0]["picks"][i] === undefined) {
-        round += 1;
-        target = data["drafts"][0]["rounds"][round - 1]["picks"];
-        i -= data["drafts"][0]["rounds"][0]["picks"].length + 1;
-        xSelectionsEnd -= data["drafts"][0]["rounds"][0]["picks"].length;
-        continue;
-      }
-      embed_desc += `**${round}-${target[i]["pickInRound"]}:** ${target[i]["prospect"]["fullName"]}, ${target[i]["team"]["name"]}\n`;
-    }
+    picks.forEach((pick) => {
+      embed_desc += `**${pick.roundNumber}-${pick.pickInRound}:** ${pick.playerName}, ${pick.triCode}\n`;
+    });
+
     var embed = new Discord.MessageEmbed()
       .setColor(`#f2432c`)
-      .setTitle(
-        `${year} NHL Entry Draft Picks ${xSelectionsStart_unchanged}-${xSelectionsEnd_unchanged}`
-      )
+      .setTitle(`${year} NHL Entry Draft Picks ${startPick}-${endPick}`)
       .setDescription(embed_desc);
     message.channel.send(embed);
   } catch (e) {

@@ -1,7 +1,7 @@
 const Discord = require("discord.js");
 const prefix = "h:";
 const { getPlayerId } = require("@nhl-api/players");
-const axios = require("axios");
+const { getPlayerLanding, isGoalie } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const careerStats = async (message) => {
@@ -10,60 +10,50 @@ const careerStats = async (message) => {
     args.shift();
     var player = args[0] + " " + args[1];
     const id = getPlayerId(player);
-    var response = await axios.get(
-      `https://statsapi.web.nhl.com/api/v1/people/${id}/stats?stats=careerRegularSeason`
-    );
-    var data = await response.data;
-    var response2 = await axios.get(
-      `https://statsapi.web.nhl.com/api/v1/people/${id}`
-    );
-    var human = await response2.data;
-    var isGoalie = await response2.data;
-    if (isGoalie["people"][0]["primaryPosition"]["abbreviation"] == "G") {
+    if (!id) { checkParams(message, args); return; }
+
+    const data = await getPlayerLanding(id);
+    const stats = data.careerTotals.regularSeason;
+    const name = `${data.firstName.default} ${data.lastName.default}`;
+
+    if (isGoalie(data.position)) {
       var embed = new Discord.MessageEmbed()
         .setColor(`#f2432c`)
-        .setThumbnail(
-          `http://nhl.bamcontent.com/images/headshots/current/168x168/${id}.jpg`
-        )
-        .setTitle(`${human["people"][0]["fullName"]} Career Stats`)
+        .setThumbnail(data.headshot)
+        .setTitle(`${name} Career Stats`)
         .setDescription(`
-**Wins:** ${data["stats"][0]["splits"][0]["stat"]["wins"]}
-**Losses:** ${data["stats"][0]["splits"][0]["stat"]["losses"]}
-**Overtime Losses:** ${data["stats"][0]["splits"][0]["stat"]["ot"]}
-**Shutouts:** ${data["stats"][0]["splits"][0]["stat"]["shutouts"]}
-**Saves:** ${data["stats"][0]["splits"][0]["stat"]["saves"]}
-**Save Percentage:** ${data["stats"][0]["splits"][0]["stat"]["savePercentage"] ? data["stats"][0]["splits"][0]["stat"]["savePercentage"].toFixed(3) : "undefined"}%
-**Goals Against:** ${data["stats"][0]["splits"][0]["stat"]["goalsAgainst"]}
-**Goals Against Average:** ${data["stats"][0]["splits"][0]["stat"]["goalAgainstAverage"] ? data["stats"][0]["splits"][0]["stat"]["goalAgainstAverage"].toFixed(2) : "undefined"}
-**Games:** ${data["stats"][0]["splits"][0]["stat"]["games"]}
-**Games Started:** ${data["stats"][0]["splits"][0]["stat"]["gamesStarted"]}
-    `);
-      message.channel.send(embed);
+**Wins:** ${stats.wins}
+**Losses:** ${stats.losses}
+**OT Losses:** ${stats.otLosses}
+**Shutouts:** ${stats.shutouts}
+**Save Percentage:** ${stats.savePctg ? stats.savePctg.toFixed(3) : "N/A"}
+**Goals Against Average:** ${stats.goalsAgainstAvg ? stats.goalsAgainstAvg.toFixed(2) : "N/A"}
+**Games Played:** ${stats.gamesPlayed}
+**Games Started:** ${stats.gamesStarted}
+        `);
     } else {
       var embed = new Discord.MessageEmbed()
         .setColor(`#f2432c`)
-        .setThumbnail(
-          `http://nhl.bamcontent.com/images/headshots/current/168x168/${id}.jpg`
-        )
-        .setTitle(`${human["people"][0]["fullName"]} Career Stats`)
+        .setThumbnail(data.headshot)
+        .setTitle(`${name} Career Stats`)
         .setDescription(`
-**Goals:** ${data["stats"][0]["splits"][0]["stat"]["goals"]}
-**Assists:** ${data["stats"][0]["splits"][0]["stat"]["assists"]}
-**Points:** ${data["stats"][0]["splits"][0]["stat"]["points"]}
-**Shots Taken:** ${data["stats"][0]["splits"][0]["stat"]["shots"]}
-**Shooting Percentage:** ${data["stats"][0]["splits"][0]["stat"]["shotPct"] ? data["stats"][0]["splits"][0]["stat"]["shotPct"].toFixed(2) : "undefined"}%
-**Faceoff Percentage:** ${data["stats"][0]["splits"][0]["stat"]["faceOffPct"] ? data["stats"][0]["splits"][0]["stat"]["faceOffPct"].toFixed(2) : "undefined"}%
-**Shots Blocked:** ${data["stats"][0]["splits"][0]["stat"]["blocked"]}
-**Plus-Minus:** ${data["stats"][0]["splits"][0]["stat"]["plusMinus"]}
-**Shifts:** ${data["stats"][0]["splits"][0]["stat"]["shifts"]}
-**TOI Per Game:** ${data["stats"][0]["splits"][0]["stat"]["timeOnIcePerGame"]}
-		`);
-      message.channel.send(embed);
+**Goals:** ${stats.goals}
+**Assists:** ${stats.assists}
+**Points:** ${stats.points}
+**Shots:** ${stats.shots}
+**Shooting Percentage:** ${stats.shootingPctg ? (stats.shootingPctg * 100).toFixed(2) : "N/A"}%
+**Plus-Minus:** ${stats.plusMinus}
+**PIM:** ${stats.pim}
+**Power Play Goals:** ${stats.powerPlayGoals}
+**Game-Winning Goals:** ${stats.gameWinningGoals}
+**Avg TOI:** ${stats.avgToi}
+        `);
     }
+    message.channel.send(embed);
   } catch (e) {
     checkParams(message, args);
   }
-}
+};
 module.exports = {
   careerStats,
 };
