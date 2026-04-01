@@ -10,28 +10,28 @@ const teamInfo = async (interaction) => {
 
     await interaction.deferReply();
     const standings = await getStandings();
-    const data = getTeamFromStandings(standings, abbrev);
-    if (!data) { await interaction.editReply("Team not found."); return; }
+    const t = getTeamFromStandings(standings, abbrev);
+    if (!t) { await interaction.editReply("Team not found in current standings."); return; }
 
     const embed = new EmbedBuilder()
       .setColor(0xf2432c)
-      .setTitle(`${data.teamName.default} Team Info`)
-      .setThumbnail(data.teamLogo)
-      .setDescription(`
-**Team Name:** ${data.teamName.default}
-**Abbreviation:** ${data.teamAbbrev.default}
-**Division:** ${data.divisionName} Division
-**Conference:** ${data.conferenceName} Conference
-**Record:** ${data.wins}-${data.losses}-${data.otLosses}
-**Points:** ${data.points}
-      `);
+      .setTitle(t.teamName.default)
+      .setThumbnail(t.teamLogo)
+      .addFields(
+        { name: "Division", value: `${t.divisionName}`, inline: true },
+        { name: "Conference", value: `${t.conferenceName}`, inline: true },
+        { name: "Record", value: `${t.wins}-${t.losses}-${t.otLosses}`, inline: true },
+        { name: "Points", value: `${t.points}`, inline: true },
+        { name: "Pts%", value: `${(t.pointPctg * 100).toFixed(1)}%`, inline: true },
+        { name: "Streak", value: `${t.streakCode}${t.streakCount}`, inline: true },
+        { name: "Home", value: `${t.homeWins}-${t.homeLosses}-${t.homeOtLosses}`, inline: true },
+        { name: "Away", value: `${t.roadWins}-${t.roadLosses}-${t.roadOtLosses}`, inline: true },
+        { name: "L10", value: `${t.l10Wins}-${t.l10Losses}-${t.l10OtLosses}`, inline: true },
+      );
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    if (interaction.deferred) {
-      await interaction.editReply("Check your parameters!");
-    } else {
-      await checkParams(interaction);
-    }
+    if (interaction.deferred) await interaction.editReply("Check your parameters!");
+    else await checkParams(interaction);
   }
 };
 module.exports = { teamInfo };

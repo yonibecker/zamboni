@@ -1,77 +1,72 @@
 const { EmbedBuilder } = require("discord.js");
-const { getPlayerId } = require("@nhl-api/players");
-const { getPlayerLanding, isGoalie } = require("../../utils/nhlapi.js");
+const { getPlayerLanding, resolvePlayerId, isGoalie, pct, fix3 } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const statsByYear = async (interaction) => {
   try {
     const player = interaction.options.getString("player");
     const year = interaction.options.getString("year");
-    const id = getPlayerId(player);
+    const id = await resolvePlayerId(player);
     if (!id || !year) { await checkParams(interaction); return; }
 
     await interaction.deferReply();
     const data = await getPlayerLanding(id);
     const name = `${data.firstName.default} ${data.lastName.default}`;
+    const seasonStr = `${year.slice(0, 4)}-${year.slice(6)}`;
 
     const seasonEntries = data.seasonTotals.filter(
       (s) => s.season === parseInt(year) && s.gameTypeId === 2 && s.leagueAbbrev === "NHL"
     );
 
     if (seasonEntries.length === 0) {
-      await interaction.editReply(`No NHL stats found for ${name} in ${year}.`);
+      await interaction.editReply(`No NHL stats found for ${name} in ${seasonStr}.`);
       return;
     }
 
-    const stats = seasonEntries.reduce((acc, s) => {
-      for (const key of Object.keys(s)) {
-        if (typeof s[key] === "number") acc[key] = (acc[key] || 0) + s[key];
+    // Sum stats across teams if traded mid-season
+    const s = seasonEntries.reduce((acc, entry) => {
+      for (const key of Object.keys(entry)) {
+        if (typeof entry[key] === "number") acc[key] = (acc[key] || 0) + entry[key];
       }
       return acc;
     }, {});
-    stats.gamesPlayed = seasonEntries.reduce((sum, s) => sum + s.gamesPlayed, 0);
+    const teams = seasonEntries.map((e) => e.teamCommonName?.default || "").join(", ");
 
-    let embed;
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
+      .setAuthor({ name: `${seasonStr} Stats` })
+      .setTitle(name)
+      .setThumbnail(data.headshot)
+      .setFooter({ text: teams });
+
     if (isGoalie(data.position)) {
-      const savePctg = seasonEntries.length === 1 ? seasonEntries[0].savePctg : null;
+      const sv = seasonEntries.length === 1 ? seasonEntries[0].savePctg : null;
       const gaa = seasonEntries.length === 1 ? seasonEntries[0].goalsAgainstAvg : null;
-      embed = new EmbedBuilder()
-        .setColor(0xf2432c)
-        .setThumbnail(data.headshot)
-        .setTitle(`${name} ${year} Stats`)
-        .setDescription(`
-**Wins:** ${stats.wins}
-**Losses:** ${stats.losses}
-**OT Losses:** ${stats.otLosses}
-**Shutouts:** ${stats.shutouts}
-**Save Percentage:** ${savePctg ? savePctg.toFixed(3) : "N/A"}
-**Goals Against Average:** ${gaa ? gaa.toFixed(2) : "N/A"}
-**Games Played:** ${stats.gamesPlayed}
-**Games Started:** ${stats.gamesStarted}
-        `);
+      embed.addFields(
+        { name: "Record", value: `${s.wins}W-${s.losses}L-${s.otLosses || 0}OTL`, inline: true },
+        { name: "GAA", value: gaa != null ? gaa.toFixed(2) : "N/A", inline: true },
+        { name: "SV%", value: sv != null ? fix3(sv) : "N/A", inline: true },
+        { name: "SO", value: `${s.shutouts}`, inline: true },
+        { name: "GP", value: `${s.gamesPlayed}`, inline: true },
+        { name: "GS", value: `${s.gamesStarted}`, inline: true },
+      );
     } else {
-      embed = new EmbedBuilder()
-        .setColor(0xf2432c)
-        .setThumbnail(data.headshot)
-        .setTitle(`${name} ${year} Stats`)
-        .setDescription(`
-**Goals:** ${stats.goals}
-**Assists:** ${stats.assists}
-**Points:** ${stats.points}
-**Shots:** ${stats.shots}
-**Plus-Minus:** ${stats.plusMinus}
-**PIM:** ${stats.pim}
-**Power Play Goals:** ${stats.powerPlayGoals}
-**Game-Winning Goals:** ${stats.gameWinningGoals}
-        `);
+      embed.addFields(
+        { name: "G", value: `${s.goals}`, inline: true },
+        { name: "A", value: `${s.assists}`, inline: true },
+        { name: "P", value: `${s.points}`, inline: true },
+        { name: "GP", value: `${s.gamesPlayed}`, inline: true },
+        { name: "+/-", value: `${s.plusMinus}`, inline: true },
+        { name: "PIM", value: `${s.pim || 0}`, inline: true },
+        { name: "S", value: `${s.shots}`, inline: true },
+        { name: "PPG", value: `${s.powerPlayGoals}`, inline: true },
+        { name: "GWG", value: `${s.gameWinningGoals}`, inline: true },
+      );
     }
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    if (interaction.deferred) {
-      await interaction.editReply("Check your parameters!");
-    } else {
-      await checkParams(interaction);
-    }
+    if (interaction.deferred) await interaction.editReply("Check your parameters!");
+    else await checkParams(interaction);
   }
 };
 module.exports = { statsByYear };
