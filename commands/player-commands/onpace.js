@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const { getPlayerLanding, resolvePlayerId, isGoalie, calculateOnPace } = require("../../utils/nhlapi.js");
+const { getPlayerLanding, resolvePlayerId, isGoalie, calculateOnPace, getMoneyPuckPlayer, fix2, teamLogo } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const onPace = async (interaction) => {
@@ -13,6 +13,8 @@ const onPace = async (interaction) => {
     const s = data.featuredStats.regularSeason.subSeason;
     const name = `${data.firstName.default} ${data.lastName.default}`;
     const gp = s.gamesPlayed;
+    const abbrev = data.currentTeamAbbrev;
+    const logo = teamLogo(abbrev);
 
     if (!gp) {
       await interaction.editReply(`${name} has no games played this season.`);
@@ -22,7 +24,7 @@ const onPace = async (interaction) => {
     const pace = (stat) => `${calculateOnPace(stat, gp)}`;
     const embed = new EmbedBuilder()
       .setColor(0xf2432c)
-      .setAuthor({ name: "82-Game Pace", iconURL: data.teamLogo })
+      .setAuthor({ name: "82-Game Pace", iconURL: logo })
       .setTitle(name)
       .setThumbnail(data.headshot)
       .setFooter({ text: `Based on ${gp} GP` });
@@ -47,6 +49,15 @@ const onPace = async (interaction) => {
         { name: "PPP", value: pace(s.powerPlayPoints), inline: true },
         { name: "GWG", value: pace(s.gameWinningGoals), inline: true },
       );
+      // MoneyPuck xG pace
+      const mp = await getMoneyPuckPlayer(id).catch(() => null);
+      if (mp) {
+        const xgPace = calculateOnPace(Number(mp.I_F_xGoals), gp);
+        embed.addFields(
+          { name: "xG Pace", value: `${xgPace}`, inline: true },
+          { name: "HD Goals Pace", value: pace(Number(mp.I_F_highDangerGoals)), inline: true },
+        );
+      }
     }
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {

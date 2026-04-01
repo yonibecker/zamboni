@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const { getTeamAbbreviation, getRoster, getStandings, getTeamFromStandings } = require("../../utils/nhlapi.js");
+const { getTeamAbbreviation, getRoster, getStandings, getTeamFromStandings, teamLogo } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const teamRoster = async (interaction) => {
@@ -16,7 +16,6 @@ const teamRoster = async (interaction) => {
 
     const teamData = getTeamFromStandings(standings, abbrev);
     const teamName = teamData ? teamData.teamName.default : team;
-    const teamLogo = teamData ? teamData.teamLogo : undefined;
 
     const formatGroup = (players, label) => {
       if (!players || players.length === 0) return "";
@@ -35,8 +34,8 @@ const teamRoster = async (interaction) => {
     const embed = new EmbedBuilder()
       .setTitle(`${teamName} Roster`)
       .setColor(0xf2432c)
+      .setThumbnail(teamLogo(abbrev))
       .setDescription(sections.join("\n\n"));
-    if (teamLogo) embed.setThumbnail(teamLogo);
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {
     if (interaction.deferred) await interaction.editReply("Check your parameters!");

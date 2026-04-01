@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
-const { getTeamAbbreviation, pct, fix2 } = require("../../utils/nhlapi.js");
+const { getTeamAbbreviation, teamLogo, pct, fix2 } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const STATS_BASE = "https://api.nhle.com/stats/rest/en";
@@ -21,60 +21,60 @@ const teamStatsByYear = async (interaction) => {
       axios.get(`${STATS_BASE}/team/realtime?isAggregate=false&isGame=false&cayenneExp=seasonId=${year}%20and%20gameTypeId=2`),
     ]);
 
-    // Match by triCode from standings or by teamFullName
-    const t = summary.data.find((s) => s.teamFullName && s.teamFullName.toUpperCase().includes(abbrev));
-    // Fallback: match by teamId
-    const teamById = summary.data.find((s) => {
-      const tp = pctData.data.find((p) => p.teamId === s.teamId);
-      return tp != null;
-    });
-    const teamSummary = t || summary.data.find((s) => {
-      // try matching abbreviation from known list
-      const tName = s.teamFullName?.toLowerCase() || "";
-      return tName.includes(team.toLowerCase());
+    // Match team by name
+    const ts = summary.data.find((s) => {
+      const name = (s.teamFullName || "").toLowerCase();
+      return name.includes(team.toLowerCase()) || name.includes(abbrev.toLowerCase());
     });
 
-    if (!teamSummary) {
+    if (!ts) {
       await interaction.editReply(`No stats found for ${team} in ${seasonStr}.`);
       return;
     }
 
-    const teamPct = pctData.data.find((p) => p.teamId === teamSummary.teamId);
-    const teamRt = rtData.data.find((r) => r.teamId === teamSummary.teamId);
+    const tp = pctData.data.find((p) => p.teamId === ts.teamId);
+    const tr = rtData.data.find((r) => r.teamId === ts.teamId);
 
     const embed = new EmbedBuilder()
       .setColor(0xf2432c)
-      .setTitle(`${teamSummary.teamFullName} ${seasonStr}`)
+      .setTitle(`${ts.teamFullName} ${seasonStr}`)
+      .setThumbnail(teamLogo(abbrev))
       .addFields(
-        { name: "Record", value: `${teamSummary.wins}-${teamSummary.losses}-${teamSummary.otLosses}`, inline: true },
-        { name: "Points", value: `${teamSummary.points} (${pct(teamSummary.pointPct)})`, inline: true },
-        { name: "ROW", value: `${teamSummary.regulationAndOtWins}`, inline: true },
-        { name: "GF/GP", value: fix2(teamSummary.goalsForPerGame), inline: true },
-        { name: "GA/GP", value: fix2(teamSummary.goalsAgainstPerGame), inline: true },
-        { name: "SO", value: `${teamSummary.teamShutouts}`, inline: true },
-        { name: "PP%", value: pct(teamSummary.powerPlayPct), inline: true },
-        { name: "PK%", value: pct(teamSummary.penaltyKillPct), inline: true },
-        { name: "FO%", value: pct(teamSummary.faceoffWinPct), inline: true },
-        { name: "SF/GP", value: fix2(teamSummary.shotsForPerGame), inline: true },
-        { name: "SA/GP", value: fix2(teamSummary.shotsAgainstPerGame), inline: true },
+        { name: "Record", value: `${ts.wins}-${ts.losses}-${ts.otLosses}`, inline: true },
+        { name: "Points", value: `${ts.points} (${pct(ts.pointPct)})`, inline: true },
+        { name: "ROW", value: `${ts.regulationAndOtWins}`, inline: true },
+        { name: "\u200B", value: "**Scoring**", inline: false },
+        { name: "GF/GP", value: fix2(ts.goalsForPerGame), inline: true },
+        { name: "GA/GP", value: fix2(ts.goalsAgainstPerGame), inline: true },
+        { name: "SO", value: `${ts.teamShutouts}`, inline: true },
+        { name: "PP%", value: pct(ts.powerPlayPct), inline: true },
+        { name: "PK%", value: pct(ts.penaltyKillPct), inline: true },
+        { name: "FO%", value: pct(ts.faceoffWinPct), inline: true },
+        { name: "SF/GP", value: fix2(ts.shotsForPerGame), inline: true },
+        { name: "SA/GP", value: fix2(ts.shotsAgainstPerGame), inline: true },
       );
 
-    if (teamPct) {
+    if (tp) {
       embed.addFields(
-        { name: "CF%", value: pct(teamPct.satPct), inline: true },
-        { name: "FF%", value: pct(teamPct.usatPct), inline: true },
-        { name: "5v5 SV%", value: pct(teamPct.savePct5v5), inline: true },
-        { name: "PDO", value: pct(teamPct.shootingPlusSavePct5v5), inline: true },
+        { name: "\u200B", value: "**Advanced (5v5)**", inline: false },
+        { name: "CF%", value: pct(tp.satPct), inline: true },
+        { name: "FF%", value: pct(tp.usatPct), inline: true },
+        { name: "PDO", value: pct(tp.shootingPlusSavePct5v5), inline: true },
+        { name: "S% 5v5", value: pct(tp.shootingPct5v5), inline: true },
+        { name: "SV% 5v5", value: pct(tp.savePct5v5), inline: true },
+        { name: "OZ Start%", value: pct(tp.zoneStartPct5v5), inline: true },
       );
     }
 
-    if (teamRt) {
+    if (tr) {
       embed.addFields(
-        { name: "Hits/60", value: fix2(teamRt.hitsPer60), inline: true },
-        { name: "Blocks/60", value: fix2(teamRt.blockedShotsPer60), inline: true },
+        { name: "Hits/60", value: fix2(tr.hitsPer60), inline: true },
+        { name: "Blocks/60", value: fix2(tr.blockedShotsPer60), inline: true },
+        { name: "Takeaways/60", value: fix2(tr.takeawaysPer60), inline: true },
       );
     }
 
+    embed.setFooter({ text: "Data: NHL API" });
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {
     if (interaction.deferred) await interaction.editReply("Check your parameters!");

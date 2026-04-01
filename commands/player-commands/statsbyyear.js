@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const { getPlayerLanding, resolvePlayerId, isGoalie, pct, fix3 } = require("../../utils/nhlapi.js");
+const { getPlayerLanding, resolvePlayerId, isGoalie, pct, fix3, teamLogo } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const statsByYear = async (interaction) => {
@@ -23,7 +23,6 @@ const statsByYear = async (interaction) => {
       return;
     }
 
-    // Sum stats across teams if traded mid-season
     const s = seasonEntries.reduce((acc, entry) => {
       for (const key of Object.keys(entry)) {
         if (typeof entry[key] === "number") acc[key] = (acc[key] || 0) + entry[key];
@@ -31,10 +30,12 @@ const statsByYear = async (interaction) => {
       return acc;
     }, {});
     const teams = seasonEntries.map((e) => e.teamCommonName?.default || "").join(", ");
+    const abbrev = data.currentTeamAbbrev;
+    const logo = teamLogo(abbrev);
 
     const embed = new EmbedBuilder()
       .setColor(0xf2432c)
-      .setAuthor({ name: `${seasonStr} Stats` })
+      .setAuthor({ name: seasonStr, iconURL: logo })
       .setTitle(name)
       .setThumbnail(data.headshot)
       .setFooter({ text: teams });

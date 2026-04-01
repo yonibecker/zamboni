@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const { getPlayerLanding, resolvePlayerId, isGoalie, pct, fix2, fix3 } = require("../../utils/nhlapi.js");
+const { getPlayerLanding, resolvePlayerId, isGoalie, pct, fix2, fix3, teamLogo } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
 const careerStats = async (interaction) => {
@@ -12,10 +12,12 @@ const careerStats = async (interaction) => {
     const data = await getPlayerLanding(id);
     const s = data.careerTotals.regularSeason;
     const name = `${data.firstName.default} ${data.lastName.default}`;
+    const abbrev = data.currentTeamAbbrev;
+    const logo = teamLogo(abbrev);
 
     const embed = new EmbedBuilder()
       .setColor(0xf2432c)
-      .setAuthor({ name: "Career Stats", iconURL: data.teamLogo })
+      .setAuthor({ name: `${data.fullTeamName.default} | Career`, iconURL: logo })
       .setTitle(name)
       .setThumbnail(data.headshot);
 
@@ -38,15 +40,21 @@ const careerStats = async (interaction) => {
         { name: "PIM", value: `${s.pim}`, inline: true },
         { name: "S", value: `${s.shots}`, inline: true },
         { name: "S%", value: pct(s.shootingPctg), inline: true },
-        { name: "PPG", value: `${s.powerPlayGoals}`, inline: true },
-        { name: "PPP", value: `${s.powerPlayPoints}`, inline: true },
-        { name: "SHG", value: `${s.shorthandedGoals}`, inline: true },
+        { name: "PPG/PPP", value: `${s.powerPlayGoals}/${s.powerPlayPoints}`, inline: true },
+        { name: "SHG/SHP", value: `${s.shorthandedGoals}/${s.shorthandedPoints}`, inline: true },
         { name: "GWG", value: `${s.gameWinningGoals}`, inline: true },
         { name: "Avg TOI", value: s.avgToi || "N/A", inline: true },
         { name: "FO%", value: pct(s.faceoffWinningPctg), inline: true },
         { name: "OTG", value: `${s.otGoals}`, inline: true },
       );
     }
+
+    // Show awards if any
+    if (data.awards && data.awards.length > 0) {
+      const awardList = data.awards.map((a) => `${a.trophy.default} (${a.seasons.length}x)`).join(", ");
+      embed.addFields({ name: "Awards", value: awardList, inline: false });
+    }
+
     await interaction.editReply({ embeds: [embed] });
   } catch (e) {
     if (interaction.deferred) await interaction.editReply("Check your parameters!");
