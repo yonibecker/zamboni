@@ -6,7 +6,7 @@ const voteForZamboni = async (interaction) => {
     .setColor(0xf2432c)
     .setAuthor({ name: "Vote For Zamboni", iconURL: logo })
     .setDescription(`
-Check out Zamboni's page [here](https://top.gg/bot/816064566412836904) and click [this link](https://top.gg/bot/816064566412836904/vote) to vote right away!
+Check out Zamboni's page [here](https://top.gg/bot/1488895664019476510) and click [this link](https://top.gg/bot/1488895664019476510/vote) to vote right away!
     `);
   await interaction.reply({ embeds: [embed] });
 };
