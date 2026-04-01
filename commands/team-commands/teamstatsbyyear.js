@@ -1,31 +1,28 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
 const { getTeamAbbreviation } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const teamStatsByYear = async (message) => {
+const teamStatsByYear = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    const year = args.pop();
-    var team = args.join(" ");
+    const team = interaction.options.getString("team");
+    const year = interaction.options.getString("year");
     const abbrev = getTeamAbbreviation(team);
-    if (!abbrev || !year) { checkParams(message, args); return; }
+    if (!abbrev || !year) { await checkParams(interaction); return; }
 
-    // Use the nhle stats API (same one league leaders use) for historical team data
+    await interaction.deferReply();
     const { data } = await axios.get(
       `https://api.nhle.com/stats/rest/en/team/summary?isAggregate=false&isGame=false&cayenneExp=seasonId=${year}%20and%20gameTypeId=2`
     );
 
     const teamData = data.data.find((t) => t.teamTriCode === abbrev);
     if (!teamData) {
-      message.channel.send(`No stats found for ${team} in ${year}.`);
+      await interaction.editReply(`No stats found for ${team} in ${year}.`);
       return;
     }
 
-    var embed = new Discord.MessageEmbed()
-      .setColor(`#f2432c`)
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
       .setTitle(`${teamData.teamFullName} ${year} Team Stats`)
       .setDescription(`
 **Wins:** ${teamData.wins}
@@ -43,11 +40,13 @@ const teamStatsByYear = async (message) => {
 **Shots Against Per Game:** ${teamData.shotsAgainstPerGame.toFixed(1)}
 **Faceoff Win Percentage:** ${(teamData.faceoffWinPctg * 100).toFixed(1)}%
       `);
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  teamStatsByYear,
-};
+module.exports = { teamStatsByYear };

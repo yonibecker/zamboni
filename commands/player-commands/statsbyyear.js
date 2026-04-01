@@ -1,32 +1,28 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const { getPlayerId } = require("@nhl-api/players");
 const { getPlayerLanding, isGoalie } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const statsByYear = async (message) => {
+const statsByYear = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    var player = args[0] + " " + args[1];
+    const player = interaction.options.getString("player");
+    const year = interaction.options.getString("year");
     const id = getPlayerId(player);
-    const year = args[2];
-    if (!id || !year) { checkParams(message, args); return; }
+    if (!id || !year) { await checkParams(interaction); return; }
 
+    await interaction.deferReply();
     const data = await getPlayerLanding(id);
     const name = `${data.firstName.default} ${data.lastName.default}`;
 
-    // Find the season in seasonTotals, filter to NHL regular season only
     const seasonEntries = data.seasonTotals.filter(
       (s) => s.season === parseInt(year) && s.gameTypeId === 2 && s.leagueAbbrev === "NHL"
     );
 
     if (seasonEntries.length === 0) {
-      message.channel.send(`No NHL stats found for ${name} in ${year}.`);
+      await interaction.editReply(`No NHL stats found for ${name} in ${year}.`);
       return;
     }
 
-    // Sum stats if player was on multiple teams that season
     const stats = seasonEntries.reduce((acc, s) => {
       for (const key of Object.keys(s)) {
         if (typeof s[key] === "number") acc[key] = (acc[key] || 0) + s[key];
@@ -35,12 +31,12 @@ const statsByYear = async (message) => {
     }, {});
     stats.gamesPlayed = seasonEntries.reduce((sum, s) => sum + s.gamesPlayed, 0);
 
+    let embed;
     if (isGoalie(data.position)) {
-      // Recalculate rate stats for goalies
       const savePctg = seasonEntries.length === 1 ? seasonEntries[0].savePctg : null;
       const gaa = seasonEntries.length === 1 ? seasonEntries[0].goalsAgainstAvg : null;
-      var embed = new Discord.MessageEmbed()
-        .setColor(`#f2432c`)
+      embed = new EmbedBuilder()
+        .setColor(0xf2432c)
         .setThumbnail(data.headshot)
         .setTitle(`${name} ${year} Stats`)
         .setDescription(`
@@ -54,8 +50,8 @@ const statsByYear = async (message) => {
 **Games Started:** ${stats.gamesStarted}
         `);
     } else {
-      var embed = new Discord.MessageEmbed()
-        .setColor(`#f2432c`)
+      embed = new EmbedBuilder()
+        .setColor(0xf2432c)
         .setThumbnail(data.headshot)
         .setTitle(`${name} ${year} Stats`)
         .setDescription(`
@@ -69,11 +65,13 @@ const statsByYear = async (message) => {
 **Game-Winning Goals:** ${stats.gameWinningGoals}
         `);
     }
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  statsByYear,
-};
+module.exports = { statsByYear };

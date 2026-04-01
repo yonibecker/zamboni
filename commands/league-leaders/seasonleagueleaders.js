@@ -1,42 +1,39 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
-const { checkParams } = require("../error-handling/checkparams.js");
 const { getCurrentSeason } = require("../../utils/season.js");
 
-const seasonLeagueLeaders = async (message) => {
+const seasonLeagueLeaders = async (interaction) => {
   try {
-  var args = message.content.slice(prefix.length).trim().split(" ");
-  args.shift();
+    await interaction.deferReply();
+    const season = getCurrentSeason();
 
-  const [
-    {data: {data: goals} },
-    {data: {data: assists} },
-    {data: {data: points} },
-    {data: {data: penaltyMinutes} },
-    {data: {data: pointsPerGame} },
-    {data: {data: shots} },
-    {data: {data: gaa} },
-    {data: {data: savePct} },
-    {data: {data: wins} },
-    {data: {data: hits} },
-    {data: {data: blockedShots} },
-    {data: {data: defensemanPoints} },
-    {data: {data: defensemanGoals} },
-    {data: {data: defensemanAssists } },
-    {data: {data: defensemanPenaltyMinutes} },
-    {data: {data: defensemanPointsPerGame} },
-    {data: {data: rookieGoals} },
-    {data: {data: rookieAssists} },
-    {data: {data: rookiePoints} },
-    {data: {data: rookiePenaltyMinutes} },
-    {data: {data: rookiePointsPerGame} },
-  ] = await getData()
+    const [
+      {data: {data: goals} },
+      {data: {data: assists} },
+      {data: {data: points} },
+      {data: {data: penaltyMinutes} },
+      {data: {data: pointsPerGame} },
+      {data: {data: shots} },
+      {data: {data: gaa} },
+      {data: {data: savePct} },
+      {data: {data: wins} },
+      {data: {data: hits} },
+      {data: {data: blockedShots} },
+      {data: {data: defensemanPoints} },
+      {data: {data: defensemanGoals} },
+      {data: {data: defensemanAssists } },
+      {data: {data: defensemanPenaltyMinutes} },
+      {data: {data: defensemanPointsPerGame} },
+      {data: {data: rookieGoals} },
+      {data: {data: rookieAssists} },
+      {data: {data: rookiePoints} },
+      {data: {data: rookiePenaltyMinutes} },
+      {data: {data: rookiePointsPerGame} },
+    ] = await getData(season);
 
-  const season = getCurrentSeason();
-  var embed = new Discord.MessageEmbed()
-    .setColor(`#f2432c`)
-    .setTitle(`${season} League Leaders`).setDescription(`
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
+      .setTitle(`${season} League Leaders`).setDescription(`
     **Skaters**
     Goals: ${goals[0].skaterFullName}, ${goals[0].teamAbbrevs}: ${goals[0].goals}
     Assists: ${assists[0].skaterFullName}, ${assists[0].teamAbbrevs}: ${assists[0].assists}
@@ -48,11 +45,11 @@ const seasonLeagueLeaders = async (message) => {
     Hits: ${hits[0].skaterFullName}, ${hits[0].teamAbbrevs}: ${hits[0].hits}
 
     **Goalies**
-    Goals Against Average: ${gaa[0].goalieFullName}, ${gaa[0].teamAbbrevs}: ${gaa[0].goalsAgainstAverage.toFixed(2)} 
-    Save Percentage: ${savePct[0].goalieFullName}, ${savePct[0].teamAbbrevs}: ${savePct[0].savePct.toFixed(3)}% 
-    Wins: ${wins[0].goalieFullName}, ${wins[0].teamAbbrevs}: ${wins[0].wins} 
-    
-    **Defenseman**
+    Goals Against Average: ${gaa[0].goalieFullName}, ${gaa[0].teamAbbrevs}: ${gaa[0].goalsAgainstAverage.toFixed(2)}
+    Save Percentage: ${savePct[0].goalieFullName}, ${savePct[0].teamAbbrevs}: ${savePct[0].savePct.toFixed(3)}%
+    Wins: ${wins[0].goalieFullName}, ${wins[0].teamAbbrevs}: ${wins[0].wins}
+
+    **Defensemen**
     Goals: ${defensemanGoals[0].skaterFullName}, ${defensemanGoals[0].teamAbbrevs}: ${defensemanGoals[0].goals}
     Assists: ${defensemanAssists[0].skaterFullName}, ${defensemanAssists[0].teamAbbrevs}: ${defensemanAssists[0].assists}
     Points: ${defensemanPoints[0].skaterFullName}, ${defensemanPoints[0].teamAbbrevs}: ${defensemanPoints[0].points}
@@ -66,80 +63,40 @@ const seasonLeagueLeaders = async (message) => {
     PIM: ${rookiePenaltyMinutes[0].skaterFullName}, ${rookiePenaltyMinutes[0].teamAbbrevs}: ${rookiePenaltyMinutes[0].penaltyMinutes}
     P/GP: ${rookiePointsPerGame[0].skaterFullName}, ${rookiePointsPerGame[0].teamAbbrevs}: ${rookiePointsPerGame[0].pointsPerGame.toFixed(2)}
 `);
-  message.channel.send(embed);
-} catch (e) {
-    checkParams(message, args)
+    await interaction.editReply({ embeds: [embed] });
+  } catch (e) {
+    if (interaction.deferred) {
+      await interaction.editReply("Something went wrong fetching league leaders.");
+    } else {
+      await interaction.reply({ content: "Something went wrong.", ephemeral: true });
+    }
   }
-}
-const getData = async () => {
-  const season = getCurrentSeason();
-  return await Promise.all([
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22goals%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22assists%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22penaltyMinutes%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22pointsPerGame%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=10&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22shots%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22goalsAgainstAverage%22,%22direction%22:%22ASC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1%20and%20gamesPlayed%3E=10&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22savePct%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1%20and%20gamesPlayed%3E=10&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),  
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22wins%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/realtime?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22hits%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/realtime?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22blockedShots%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22goals%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22assists%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22penaltyMinutes%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22pointsPerGame%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1%20and%20gamesPlayed%3E=10&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22goals%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22assists%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22penaltyMinutes%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-    axios.get(
-      `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22pointsPerGame%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1%20and%20gamesPlayed%3E=10&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`
-    ),
-  ])
-}
-
-module.exports = {
-  seasonLeagueLeaders
 };
+
+const getData = async (season) => {
+  const sk = (prop, extra = "gamesPlayed%3E=1") =>
+    axios.get(`https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22${prop}%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=${extra}&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`);
+  const skD = (prop, extra = "gamesPlayed%3E=1") =>
+    axios.get(`https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22${prop}%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=${extra}&cayenneExp=gameTypeId=2%20and%20positionCode%3D%22D%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`);
+  const skR = (prop, extra = "gamesPlayed%3E=1") =>
+    axios.get(`https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22${prop}%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=${extra}&cayenneExp=gameTypeId=2%20and%20isRookie=%221%22%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`);
+  const gl = (prop, extra = "gamesPlayed%3E=1") =>
+    axios.get(`https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22${prop}%22,%22direction%22:%22${prop === "goalsAgainstAverage" ? "ASC" : "DESC"}%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=${extra}&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`);
+  const rt = (prop) =>
+    axios.get(`https://api.nhle.com/stats/rest/en/skater/realtime?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22${prop}%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=${season}%20and%20seasonId%3E=${season}`);
+
+  return Promise.all([
+    sk("goals"), sk("assists"), sk("points"), sk("penaltyMinutes"),
+    sk("pointsPerGame", "gamesPlayed%3E=10"), sk("shots"),
+    gl("goalsAgainstAverage", "gamesPlayed%3E=1%20and%20gamesPlayed%3E=10"),
+    gl("savePct", "gamesPlayed%3E=1%20and%20gamesPlayed%3E=10"),
+    gl("wins"),
+    rt("hits"), rt("blockedShots"),
+    skD("points"), skD("goals"), skD("assists"), skD("penaltyMinutes"),
+    skD("pointsPerGame", "gamesPlayed%3E=1%20and%20gamesPlayed%3E=10"),
+    skR("goals"), skR("assists"), skR("points"), skR("penaltyMinutes"),
+    skR("pointsPerGame", "gamesPlayed%3E=1%20and%20gamesPlayed%3E=10"),
+  ]);
+};
+
+module.exports = { seasonLeagueLeaders };

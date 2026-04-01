@@ -1,10 +1,10 @@
-const Discord = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 
-const invalidCommand = (message) => {
-  var embed = new Discord.MessageEmbed().setColor(`#f2432c`).setDescription(`
-    Invalid command. Check \`h:help\` for valid commands.
-  `);
-  message.channel.send(embed);
+const invalidCommand = async (interaction) => {
+  const embed = new EmbedBuilder()
+    .setColor(0xf2432c)
+    .setDescription("Invalid command. Use `/help` for valid commands.");
+  await interaction.reply({ embeds: [embed], ephemeral: true });
 };
 
 module.exports = {

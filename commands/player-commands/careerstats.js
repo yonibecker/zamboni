@@ -1,24 +1,23 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const { getPlayerId } = require("@nhl-api/players");
 const { getPlayerLanding, isGoalie } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const careerStats = async (message) => {
+const careerStats = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    var player = args[0] + " " + args[1];
+    const player = interaction.options.getString("player");
     const id = getPlayerId(player);
-    if (!id) { checkParams(message, args); return; }
+    if (!id) { await checkParams(interaction); return; }
 
+    await interaction.deferReply();
     const data = await getPlayerLanding(id);
     const stats = data.careerTotals.regularSeason;
     const name = `${data.firstName.default} ${data.lastName.default}`;
 
+    let embed;
     if (isGoalie(data.position)) {
-      var embed = new Discord.MessageEmbed()
-        .setColor(`#f2432c`)
+      embed = new EmbedBuilder()
+        .setColor(0xf2432c)
         .setThumbnail(data.headshot)
         .setTitle(`${name} Career Stats`)
         .setDescription(`
@@ -32,8 +31,8 @@ const careerStats = async (message) => {
 **Games Started:** ${stats.gamesStarted}
         `);
     } else {
-      var embed = new Discord.MessageEmbed()
-        .setColor(`#f2432c`)
+      embed = new EmbedBuilder()
+        .setColor(0xf2432c)
         .setThumbnail(data.headshot)
         .setTitle(`${name} Career Stats`)
         .setDescription(`
@@ -49,11 +48,13 @@ const careerStats = async (message) => {
 **Avg TOI:** ${stats.avgToi}
         `);
     }
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  careerStats,
-};
+module.exports = { careerStats };

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "deploy": "node deploy-commands.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -18,7 +19,7 @@
     "@nhl-api/players": "^3.1.4",
     "@nhl-api/teams": "^3.1.4",
     "axios": "^0.21.4",
-    "discord.js": "^12.5.3",
+    "discord.js": "^14.26.0",
     "dotenv": "^9.0.2",
     "express": "^4.18.1"
   }

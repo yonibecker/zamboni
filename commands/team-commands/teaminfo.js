@@ -1,22 +1,20 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const { getTeamAbbreviation, getStandings, getTeamFromStandings } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const teamInfo = async (message) => {
+const teamInfo = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    var team = args.join(" ");
+    const team = interaction.options.getString("team");
     const abbrev = getTeamAbbreviation(team);
-    if (!abbrev) { checkParams(message, args); return; }
+    if (!abbrev) { await checkParams(interaction); return; }
 
+    await interaction.deferReply();
     const standings = await getStandings();
     const data = getTeamFromStandings(standings, abbrev);
-    if (!data) { checkParams(message, args); return; }
+    if (!data) { await interaction.editReply("Team not found."); return; }
 
-    var embed = new Discord.MessageEmbed()
-      .setColor(`#f2432c`)
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
       .setTitle(`${data.teamName.default} Team Info`)
       .setThumbnail(data.teamLogo)
       .setDescription(`
@@ -27,11 +25,13 @@ const teamInfo = async (message) => {
 **Record:** ${data.wins}-${data.losses}-${data.otLosses}
 **Points:** ${data.points}
       `);
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  teamInfo,
-};
+module.exports = { teamInfo };

@@ -1,21 +1,19 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const { getPlayerId } = require("@nhl-api/players");
 const { getPlayerLanding, formatHeight, positionName } = require("../../utils/nhlapi.js");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const playerInfo = async (message) => {
+const playerInfo = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    var player = args[0] + " " + args[1];
+    const player = interaction.options.getString("player");
     const id = getPlayerId(player);
-    if (!id) { checkParams(message, args); return; }
+    if (!id) { await checkParams(interaction); return; }
 
+    await interaction.deferReply();
     const data = await getPlayerLanding(id);
 
-    var embed = new Discord.MessageEmbed()
-      .setColor(`#f2432c`)
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
       .setThumbnail(data.headshot)
       .setTitle(`${data.firstName.default} ${data.lastName.default} Info`)
       .setDescription(`
@@ -29,11 +27,13 @@ const playerInfo = async (message) => {
 **Birth Country:** ${data.birthCountry}
 **Shoots/Catches:** ${data.shootsCatches}
       `);
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  playerInfo,
-};
+module.exports = { playerInfo };

@@ -1,10 +1,10 @@
-const Discord = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 
-const checkParams = (message) => {
-  var embed = new Discord.MessageEmbed().setColor(`#f2432c`).setDescription(`
-    Check your parameters!
-  `);
-  message.channel.send(embed);
+const checkParams = async (interaction) => {
+  const embed = new EmbedBuilder()
+    .setColor(0xf2432c)
+    .setDescription("Check your parameters!");
+  await interaction.reply({ embeds: [embed], ephemeral: true });
 };
 
 module.exports = {

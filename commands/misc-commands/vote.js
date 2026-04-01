@@ -1,14 +1,14 @@
-const Discord = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const logo = process.env.BASE_URL ? `${process.env.BASE_URL}/zamboni.png` : undefined;
 
-function voteForZamboni(message) {
-  var embed = new Discord.MessageEmbed()
-    .setColor(`#f2432c`)
-    .setAuthor("Vote For Zamboni", logo).setDescription(`
+const voteForZamboni = async (interaction) => {
+  const embed = new EmbedBuilder()
+    .setColor(0xf2432c)
+    .setAuthor({ name: "Vote For Zamboni", iconURL: logo })
+    .setDescription(`
 Check out Zamboni's page [here](https://top.gg/bot/816064566412836904) and click [this link](https://top.gg/bot/816064566412836904/vote) to vote right away!
     `);
-  message.channel.send(embed);
-}
-module.exports = {
-  voteForZamboni
+  await interaction.reply({ embeds: [embed] });
 };
+
+module.exports = { voteForZamboni };

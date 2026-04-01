@@ -7,3 +7,4 @@ static/team-images/
 .local/
 .config/
 .agents/
+.claude/

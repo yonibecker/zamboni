@@ -1,21 +1,19 @@
-const Discord = require("discord.js");
-const prefix = "h:";
+const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
 const { checkParams } = require("../error-handling/checkparams.js");
 
-const draftSelections = async (message) => {
+const draftSelections = async (interaction) => {
   try {
-    var args = message.content.slice(prefix.length).trim().split(" ");
-    args.shift();
-    const year = args[0];
-    const startPick = parseInt(args[1]);
-    const endPick = parseInt(args[2]);
+    const year = interaction.options.getInteger("year");
+    const startPick = interaction.options.getInteger("start");
+    const endPick = interaction.options.getInteger("end");
 
     if (!year || !startPick || !endPick || startPick > endPick) {
-      checkParams(message, args);
+      await checkParams(interaction);
       return;
     }
 
+    await interaction.deferReply();
     const { data } = await axios.get(
       `https://records.nhl.com/site/api/draft?cayenneExp=draftYear=${year}&sort=[{%22property%22:%22overallPickNumber%22,%22direction%22:%22ASC%22}]`
     );
@@ -25,24 +23,26 @@ const draftSelections = async (message) => {
     );
 
     if (picks.length === 0) {
-      message.channel.send(`No draft picks found for ${year} picks ${startPick}-${endPick}.`);
+      await interaction.editReply(`No draft picks found for ${year} picks ${startPick}-${endPick}.`);
       return;
     }
 
-    var embed_desc = "";
+    let embed_desc = "";
     picks.forEach((pick) => {
       embed_desc += `**${pick.roundNumber}-${pick.pickInRound}:** ${pick.playerName}, ${pick.triCode}\n`;
     });
 
-    var embed = new Discord.MessageEmbed()
-      .setColor(`#f2432c`)
+    const embed = new EmbedBuilder()
+      .setColor(0xf2432c)
       .setTitle(`${year} NHL Entry Draft Picks ${startPick}-${endPick}`)
       .setDescription(embed_desc);
-    message.channel.send(embed);
+    await interaction.editReply({ embeds: [embed] });
   } catch (e) {
-    checkParams(message, args);
+    if (interaction.deferred) {
+      await interaction.editReply("Check your parameters!");
+    } else {
+      await checkParams(interaction);
+    }
   }
 };
-module.exports = {
-  draftSelections,
-};
+module.exports = { draftSelections };
