@@ -1,0 +1,9 @@
+.gitattributes
+.env
+node_modules/
+.DS_Store
+static/team-images/
+.replit.backup
+.local/
+.config/
+.agents/
